@@ -13,7 +13,6 @@ A full stack social media web application built with React, Node.js, Express, Mo
 - Chat: one-to-one realtime chat with typing and seen status
 - Search: users, posts, hashtags, suggestions
 - Explore: trending content and creators
-- Stories: upload, view, auto-expire after 24 hours, reactions
 - UI: responsive layout, dark/light mode, skeleton loaders, toast notifications, smooth animations
 
 ## Project Structure
@@ -45,41 +44,3 @@ The backend exposes REST endpoints under `/api` for auth, users, posts, feeds, n
 
 The frontend is a Vite app that consumes the backend API through `VITE_API_URL` and realtime events through `VITE_SOCKET_URL`.
 
-## UI Redesign - Premium X/Twitter-Inspired Dark Theme
-
-The frontend has been completely redesigned with a startup-grade, premium dark theme inspired by modern X/Twitter web UI.
-
-### Design Highlights
-
-- **Dark Mode Default**: Black and charcoal surfaces with blue accent hierarchy
-- **3-Column Layout**: Fixed left sidebar, main feed, right suggestions panel
-- **X-Style Navigation**: Icon-based sticky sidebar with active highlights
-- **Composer-first Feed**: For You and Following tabs with inline post composer
-- **Premium Right Rail**: Search, trending section, suggestions, and subscription card
-- **Smooth Animations**: Framer Motion transitions on all interactions
-- **Responsive**: Adapts from desktop (3-col) → tablet (2-col) → mobile (1-col + bottom nav)
-- **Premium Polish**: Micro-interactions, hover effects, careful typography
-
-### Key Features
-
-✅ X-style 3-column layout (sidebar + feed + rail)  
-✅ Bottom navigation bar for mobile  
-✅ For You and Following feed tabs  
-✅ Inline composer with media and action controls  
-✅ Right rail with search, trends, suggestions, premium card  
-✅ Premium dark palette (black, charcoal, blue accent)  
-✅ Smooth page transitions and hover effects  
-✅ Perfect responsive breakpoints (520px, 720px, 1080px, 1320px)  
-✅ Modern typography with Inter/Poppins fonts  
-✅ All components ready for production use  
-
-### See Full Details
-
-👉 [UI_REDESIGN.md](./UI_REDESIGN.md) - Complete design documentation, component guide, and responsive behavior.
-
-## Notes
-
-- Media uploads use local disk storage in `uploads/` by default.
-- Dark theme is the default; light mode is available as an option.
-- Replace the email transport settings with a real SMTP provider for password reset emails.
-- MongoDB must be running locally or available via `MONGODB_URI`.
