@@ -93,7 +93,7 @@ const forgotPassword = async (req, res) => {
   const resetUrl = `${process.env.CLIENT_URL}/reset-password/${resetToken}`;
   await sendEmail({
     to: user.email,
-    subject: 'Reset your SOCIAL MEDIA PLATEFORM password',
+    subject: 'Reset your Xverse password',
     html: `<p>Click to reset your password:</p><p><a href="${resetUrl}">${resetUrl}</a></p>`,
   });
 

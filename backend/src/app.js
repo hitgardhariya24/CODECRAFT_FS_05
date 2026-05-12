@@ -44,7 +44,7 @@ app.use(morgan('dev'));
 app.use('/uploads', express.static(uploadsDir));
 
 app.get('/api/health', (_req, res) => {
-  res.json({ status: 'ok', name: 'SOCIAL MEDIA PLATEFORM API' });
+  res.json({ status: 'ok', name: 'Xverse API' });
 });
 
 app.use('/api', routes);

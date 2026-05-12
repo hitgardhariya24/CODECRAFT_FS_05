@@ -1,4 +1,4 @@
-# SOCIAL MEDIA PLATEFORM
+# Xverse
 
 A full stack social media web application built with React, Node.js, Express, MongoDB, and Socket.io.
 
