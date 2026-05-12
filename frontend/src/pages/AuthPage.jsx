@@ -11,6 +11,11 @@ export default function AuthPage() {
   const { login, register, forgotPassword } = useAuth();
   const navigate = useNavigate();
 
+  const demoAccounts = [
+    { label: 'Rohan (dev)', email: 'rohanmehta@gmail.com', password: 'rohanmehta@1234' },
+    { label: 'Aarav (dev)', email: 'aaravpatel@gmail.com', password: 'aaravpatel@1234' },
+  ];
+
   const submit = async (event) => {
     event.preventDefault();
     try {
@@ -77,6 +82,34 @@ export default function AuthPage() {
           <button type="button" className="social-login-btn" onClick={() => toast('Social sign-in is not connected yet')}>Continue with Google</button>
           <button type="button" className="social-login-btn" onClick={() => toast('Social sign-in is not connected yet')}>Continue with Apple</button>
         </div>
+
+        {process.env.NODE_ENV !== 'production' ? (
+          <div className="divider-row">
+            <span>or use a demo account</span>
+          </div>
+        ) : null}
+
+        {process.env.NODE_ENV !== 'production' ? (
+          <div style={{ display: 'flex', gap: 8, marginBottom: 8 }}>
+            {demoAccounts.map((acc) => (
+              <button
+                key={acc.email}
+                type="button"
+                className="social-login-btn"
+                onClick={async () => {
+                  try {
+                    await login({ identifier: acc.email, password: acc.password });
+                    navigate('/');
+                  } catch (err) {
+                    console.error('Demo login failed', err);
+                  }
+                }}
+              >
+                {acc.label}
+              </button>
+            ))}
+          </div>
+        ) : null}
 
         <div className="divider-row"><span>or continue with email</span></div>
 

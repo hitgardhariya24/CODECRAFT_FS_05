@@ -1470,11 +1470,11 @@ html, body {
 
 /* Chips & Buttons */
 .chip {
-  display: inline-flex;
-  align-items: center;
-  padding: 8px 12px;
-  background: rgba(29, 155, 240, 0.14);
-  border: 1px solid rgba(29, 155, 240, 0.24);
+  display: inline;
+  padding: 0;
+  background: transparent;
+  border: none;
+  color: var(--muted);
 }
 
 .primary-btn,

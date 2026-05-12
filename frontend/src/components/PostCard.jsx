@@ -206,11 +206,7 @@ export default function PostCard({ post, onChanged }) {
         </div>
       ) : null}
 
-      <div className="chips-row">
-        {post.hashtags?.map((tag) => (
-          <span className="chip" key={tag}>#{tag}</span>
-        ))}
-      </div>
+      {post.hashtags?.length ? <p className="post-text" style={{ marginTop: '8px', color: 'var(--muted)' }}>{post.hashtags.map((tag) => `#${tag}`).join(' ')}</p> : null}
 
       <div className="post-actions">
         <button className={liked ? 'action-pill active' : 'action-pill'} onClick={toggleLike} type="button" aria-label="Like post">
