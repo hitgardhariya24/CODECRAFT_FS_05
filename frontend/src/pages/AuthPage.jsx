@@ -11,11 +11,6 @@ export default function AuthPage() {
   const { login, register, forgotPassword } = useAuth();
   const navigate = useNavigate();
 
-  const demoAccounts = [
-    { label: 'Rohan (dev)', email: 'rohanmehta@gmail.com', password: 'rohanmehta@1234' },
-    { label: 'Aarav (dev)', email: 'aaravpatel@gmail.com', password: 'aaravpatel@1234' },
-  ];
-
   const submit = async (event) => {
     event.preventDefault();
     try {
@@ -48,11 +43,10 @@ export default function AuthPage() {
       <motion.section className="auth-hero" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.25 }}>
         <div className="auth-brand-hero">
           <div className="brand-mark brand-mark-large brand-mark-hero">X</div>
-          <div>
-            <h1> Xverse </h1>
-            <p className="auth-lead">
-              ✨ Connect, share & explore your world with Xverse.
-            </p>
+          <div className="auth-hero-copy">
+            
+            <h1>Xverse</h1>
+            <p className="auth-lead">✨ Connect, share & explore your world with Xverse.</p>
           </div>
         </div>
       </motion.section>
@@ -79,37 +73,9 @@ export default function AuthPage() {
         </div>
 
         <div className="social-login-row">
-          <button type="button" className="social-login-btn" onClick={() => toast('Social sign-in is not connected yet')}>Continue with Google</button>
-          <button type="button" className="social-login-btn" onClick={() => toast('Social sign-in is not connected yet')}>Continue with Apple</button>
+          <button type="button" className="social-login-btn social-login-btn-google" onClick={() => toast('Social sign-in is not connected yet')}>Continue with Google</button>
+          <button type="button" className="social-login-btn social-login-btn-apple" onClick={() => toast('Social sign-in is not connected yet')}>Continue with Apple</button>
         </div>
-
-        {process.env.NODE_ENV !== 'production' ? (
-          <div className="divider-row">
-            <span>or use a demo account</span>
-          </div>
-        ) : null}
-
-        {process.env.NODE_ENV !== 'production' ? (
-          <div style={{ display: 'flex', gap: 8, marginBottom: 8 }}>
-            {demoAccounts.map((acc) => (
-              <button
-                key={acc.email}
-                type="button"
-                className="social-login-btn"
-                onClick={async () => {
-                  try {
-                    await login({ identifier: acc.email, password: acc.password });
-                    navigate('/');
-                  } catch (err) {
-                    console.error('Demo login failed', err);
-                  }
-                }}
-              >
-                {acc.label}
-              </button>
-            ))}
-          </div>
-        ) : null}
 
         <div className="divider-row"><span>or continue with email</span></div>
 

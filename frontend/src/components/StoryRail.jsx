@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import api from '../services/api';
+import AvatarImage from './AvatarImage';
 import { motion } from 'framer-motion';
 
 export default function StoryRail() {
@@ -24,7 +25,7 @@ export default function StoryRail() {
       {stories.map((story) => (
         <motion.div key={story._id} className="story-pill" whileHover={{ y: -4, scale: 1.03 }} transition={{ duration: 0.18 }}>
           <div className="story-ring">
-            <img src={story.author?.avatar || '/avatar-placeholder.svg'} alt="story author" className="story-avatar" />
+            <AvatarImage src={story.author?.avatar} alt="story author" className="story-avatar" />
           </div>
           <span>{story.author?.username}</span>
         </motion.div>

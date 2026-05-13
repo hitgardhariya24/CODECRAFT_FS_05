@@ -4,25 +4,40 @@ import { Bookmark, Heart, MessageCircle, Repeat2, Share, BadgeCheck, Trash2, Lin
 import api from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import toast from 'react-hot-toast';
+import AvatarImage from './AvatarImage';
+import { getMediaUrl, isValidMediaUrl } from '../utils/media';
 
-export default function PostCard({ post, onChanged }) {
+export default function PostCard({ post, onChanged, initialSaved = false, showRepostBadge = false }) {
   const { user } = useAuth();
-  const commentInputRef = useRef(null);
   const menuRef = useRef(null);
-  const [comment, setComment] = useState('');
+  const [commentsOpen, setCommentsOpen] = useState(false);
+  const [comments, setComments] = useState([]);
+  const [commentsLoading, setCommentsLoading] = useState(false);
+  const [commentText, setCommentText] = useState('');
+  const [commentSubmitting, setCommentSubmitting] = useState(false);
   const [liked, setLiked] = useState(Boolean(post.likes?.includes(user?._id)));
   const [likesCount, setLikesCount] = useState(post.likes?.length || 0);
-  const [saved, setSaved] = useState(false);
+  const [commentsCount, setCommentsCount] = useState(post.commentsCount || 0);
+  const [saved, setSaved] = useState(Boolean(initialSaved));
+  const [savingPost, setSavingPost] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [shareOpen, setShareOpen] = useState(false);
   const [shareTab, setShareTab] = useState('following');
   const [shareUsers, setShareUsers] = useState({ following: [], followers: [] });
   const [shareLoading, setShareLoading] = useState(false);
+  const [reposting, setReposting] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const verified = Boolean(post.author?.verified || post.author?.isVerified);
   const isOwnPost = post.author?.username === user?.username;
 
   const authorInitial = useMemo(() => post.author?.name?.slice(0, 1)?.toUpperCase() || 'U', [post.author]);
+  const resolveAvatar = (person) => (person?.username === user?.username ? user?.avatar : person?.avatar);
+
+  const closeComments = () => setCommentsOpen(false);
+
+  useEffect(() => {
+    setSaved(Boolean(initialSaved));
+  }, [initialSaved]);
 
   useEffect(() => {
     const handleClickOutside = (event) => {
@@ -60,6 +75,49 @@ export default function PostCard({ post, onChanged }) {
     loadShareUsers();
   }, [shareOpen, user?.username]);
 
+  useEffect(() => {
+    setCommentsCount(post.commentsCount || 0);
+  }, [post.commentsCount]);
+
+  useEffect(() => {
+    const loadComments = async () => {
+      if (!commentsOpen) return;
+
+      setCommentsLoading(true);
+      try {
+        const { data } = await api.get(`/posts/${post._id}/comments`);
+        setComments(data.comments || []);
+        setCommentsCount(post.commentsCount || (data.comments || []).length);
+      } catch (error) {
+        toast.error(error.response?.data?.message || 'Could not load comments');
+      } finally {
+        setCommentsLoading(false);
+      }
+    };
+
+    loadComments();
+  }, [commentsOpen, post._id, post.commentsCount]);
+
+  useEffect(() => {
+    if (!commentsOpen) return undefined;
+
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+
+    const handleKeyDown = (event) => {
+      if (event.key === 'Escape') {
+        closeComments();
+      }
+    };
+
+    document.addEventListener('keydown', handleKeyDown);
+
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      document.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [commentsOpen]);
+
   const toggleLike = async () => {
     const { data } = await api.post(`/posts/${post._id}/like`);
     setLiked(data.liked);
@@ -67,10 +125,9 @@ export default function PostCard({ post, onChanged }) {
     onChanged?.();
   };
 
-  const focusComment = () => {
-    commentInputRef.current?.focus();
-    commentInputRef.current?.scrollIntoView?.({ behavior: 'smooth', block: 'center' });
-    toast('Comment box ready');
+  const openComments = () => {
+    setCommentsOpen(true);
+    setMenuOpen(false);
   };
 
   const handleMoreActions = () => {
@@ -104,8 +161,17 @@ export default function PostCard({ post, onChanged }) {
     }
   };
 
-  const repostPost = () => {
-    toast.success('Repost saved to drafts');
+  const repostPost = async () => {
+    setReposting(true);
+    try {
+      await api.post(`/posts/${post._id}/repost`);
+      toast.success('Reposted');
+      onChanged?.();
+    } catch (error) {
+      toast.error(error.response?.data?.message || 'Could not repost');
+    } finally {
+      setReposting(false);
+    }
   };
 
   const sharePost = async () => {
@@ -136,107 +202,225 @@ export default function PostCard({ post, onChanged }) {
 
   const shareList = shareTab === 'followers' ? shareUsers.followers : shareUsers.following;
 
-  const toggleSave = () => {
-    setSaved((current) => {
-      const next = !current;
-      toast.success(next ? 'Post saved' : 'Removed from saved');
-      return next;
-    });
+  const toggleSave = async () => {
+    if (savingPost) return;
+
+    const nextSavedState = !saved;
+    setSavingPost(true);
+    setSaved(nextSavedState);
+
+    try {
+      const { data } = await api.post(`/users/saved/${post._id}`);
+      toast.success(data.message || (nextSavedState ? 'Post saved' : 'Removed from saved'));
+      onChanged?.();
+    } catch (error) {
+      setSaved(!nextSavedState);
+      toast.error(error.response?.data?.message || 'Could not update saved posts');
+    } finally {
+      setSavingPost(false);
+    }
   };
 
   const submitComment = async (event) => {
     event.preventDefault();
-    if (!comment.trim()) return;
-    await api.post(`/posts/${post._id}/comments`, { text: comment });
-    setComment('');
-    toast.success('Comment added');
-    onChanged?.();
+    if (!commentText.trim()) return;
+
+    setCommentSubmitting(true);
+    try {
+      const { data } = await api.post(`/posts/${post._id}/comments`, { text: commentText });
+      setComments((current) => [...current, { ...data.comment, replies: [] }]);
+      setCommentsCount((current) => current + 1);
+      setCommentText('');
+      toast.success('Comment added');
+      onChanged?.();
+    } catch (error) {
+      toast.error(error.response?.data?.message || 'Could not add comment');
+    } finally {
+      setCommentSubmitting(false);
+    }
   };
 
-  return (
-    <motion.article className="post-card glass-card" whileHover={{ y: -3 }} transition={{ duration: 0.18 }}>
-      <div className="post-head">
-        {post.author?.avatar ? (
-          <img src={post.author.avatar} alt="author" className="avatar" />
-        ) : (
-          <div className="avatar avatar-fallback">{authorInitial}</div>
-        )}
-        <div className="post-meta">
-          <strong>
-            {post.author?.name}
-            {verified ? <BadgeCheck size={16} className="verified-icon" /> : null}
-          </strong>
-          <p>@{post.author?.username} · {new Date(post.createdAt).toLocaleDateString([], { month: 'short', day: 'numeric' })}</p>
+  const renderComment = (item, depth = 0) => (
+    <div key={item._id} className={`post-comment-item ${depth ? 'reply' : ''}`} style={{ marginLeft: depth ? 18 : 0 }}>
+      <AvatarImage src={resolveAvatar(item.author)} alt={item.author?.username || 'comment author'} className="avatar avatar-sm post-comment-avatar" />
+      <div className="post-comment-body">
+        <div className="post-comment-head">
+          <strong>{item.author?.name || item.author?.username || 'Someone'}</strong>
+          <span>@{item.author?.username || 'user'}</span>
+          <span>{new Date(item.createdAt).toLocaleDateString([], { month: 'short', day: 'numeric' })}</span>
         </div>
-        <button className="icon-btn" type="button" aria-label="More actions" onClick={handleMoreActions}>⋯</button>
+        <p>{item.text}</p>
+        {item.replies?.length ? <div className="post-comment-replies">{item.replies.map((reply) => renderComment(reply, depth + 1))}</div> : null}
+      </div>
+    </div>
+  );
 
-        {menuOpen ? (
-          <div ref={menuRef} className="post-menu">
-            <button type="button" className="post-menu-item" onClick={sharePost}>
-              <Users size={15} />
-              Share to friend
-            </button>
-            <button type="button" className="post-menu-item" onClick={copyPostLink}>
-              <Link2 size={15} />
-              Copy link
-            </button>
-            {isOwnPost ? (
-              <button type="button" className="post-menu-item danger" onClick={deletePost} disabled={deleting}>
-                <Trash2 size={15} />
-                {deleting ? 'Deleting...' : 'Delete post'}
+  const repostCount = post.sharesCount || 0;
+
+  return (
+    <>
+      <motion.article className="post-card glass-card" whileHover={{ y: -3 }} transition={{ duration: 0.18 }}>
+        <div className="post-head">
+          {post.author?.avatar ? (
+            <AvatarImage src={resolveAvatar(post.author)} alt="author" className="avatar" />
+          ) : (
+            <div className="avatar avatar-fallback">{authorInitial}</div>
+          )}
+          <div className="post-meta">
+            <strong>
+              {post.author?.name}
+              {verified ? <BadgeCheck size={16} className="verified-icon" /> : null}
+            </strong>
+            <p>@{post.author?.username} · {new Date(post.createdAt).toLocaleDateString([], { month: 'short', day: 'numeric' })}</p>
+          </div>
+          {showRepostBadge && repostCount > 0 ? (
+            <span className="post-repost-pill" title={`${repostCount} repost${repostCount === 1 ? '' : 's'}`}>
+              <Repeat2 size={14} />
+              <span>{repostCount}</span>
+            </span>
+          ) : null}
+          <button className="icon-btn" type="button" aria-label="More actions" onClick={handleMoreActions}>⋯</button>
+
+          {menuOpen ? (
+            <div ref={menuRef} className="post-menu">
+              <button type="button" className="post-menu-item" onClick={sharePost}>
+                <Users size={15} />
+                Share to friend
               </button>
-            ) : null}
+              <button type="button" className="post-menu-item" onClick={copyPostLink}>
+                <Link2 size={15} />
+                Copy link
+              </button>
+              {isOwnPost ? (
+                <button type="button" className="post-menu-item danger" onClick={deletePost} disabled={deleting}>
+                  <Trash2 size={15} />
+                  {deleting ? 'Deleting...' : 'Delete post'}
+                </button>
+              ) : null}
+            </div>
+          ) : null}
+        </div>
+
+        {post.location ? <p className="post-location">📍 {post.location}</p> : null}
+
+        <p className="post-text">{post.text}</p>
+
+        {post.media?.length ? (
+          <div className={`media-grid media-count-${Math.min(post.media.length, 4)}`}>
+            {post.media.map((item) => {
+              const fullUrl = getMediaUrl(item.url);
+              const isValid = isValidMediaUrl(item.url);
+
+              if (!isValid) {
+                return null;
+              }
+
+              return item.type === 'video' ? (
+                <video
+                  key={item.url}
+                  controls
+                  src={fullUrl}
+                  className="post-media"
+                  onError={(e) => {
+                    console.error('Video failed to load:', fullUrl);
+                    e.target.style.display = 'none';
+                  }}
+                />
+              ) : (
+                <img
+                  key={item.url}
+                  src={fullUrl}
+                  alt={item.originalName || 'post media'}
+                  className="post-media"
+                  onError={(e) => {
+                    console.error('Image failed to load:', fullUrl);
+                    e.target.style.display = 'none';
+                  }}
+                />
+              );
+            })}
           </div>
         ) : null}
-      </div>
 
-      {post.location ? <p className="post-location">📍 {post.location}</p> : null}
+        {post.hashtags?.length ? <p className="post-text" style={{ marginTop: '8px', color: 'var(--muted)' }}>{post.hashtags.map((tag) => `#${tag}`).join(' ')}</p> : null}
 
-      <p className="post-text">{post.text}</p>
-
-      {post.media?.length ? (
-        <div className={`media-grid media-count-${Math.min(post.media.length, 4)}`}>
-          {post.media.map((item) =>
-            item.type === 'video' ? (
-              <video key={item.url} controls src={item.url} className="post-media" />
-            ) : (
-              <img key={item.url} src={item.url} alt="post media" className="post-media" />
-            )
-          )}
+        <div className="post-actions">
+          <button className={liked ? 'action-pill active' : 'action-pill'} onClick={toggleLike} type="button" aria-label="Like post">
+            <Heart size={17} />
+            <span>{likesCount}</span>
+          </button>
+          <button className="action-pill" type="button" aria-label="Comment on post" onClick={openComments}>
+            <MessageCircle size={17} />
+            <span>{commentsCount}</span>
+          </button>
+          <button className="action-pill" type="button" aria-label="Repost" onClick={repostPost} disabled={reposting}>
+            <Repeat2 size={17} />
+            <span>{reposting ? 'Posting...' : 'Repost'}</span>
+          </button>
+          <button className="action-pill" type="button" aria-label="Share post" onClick={sharePost}>
+            <Share size={17} />
+            <span>Share</span>
+          </button>
+          <button className={saved ? 'action-pill active' : 'action-pill'} type="button" aria-label="Save post" onClick={toggleSave} disabled={savingPost}>
+            <Bookmark size={17} />
+          </button>
         </div>
-      ) : null}
-
-      {post.hashtags?.length ? <p className="post-text" style={{ marginTop: '8px', color: 'var(--muted)' }}>{post.hashtags.map((tag) => `#${tag}`).join(' ')}</p> : null}
-
-      <div className="post-actions">
-        <button className={liked ? 'action-pill active' : 'action-pill'} onClick={toggleLike} type="button" aria-label="Like post">
-          <Heart size={17} />
-          <span>{likesCount}</span>
-        </button>
-        <button className="action-pill" type="button" aria-label="Comment on post" onClick={focusComment}>
-          <MessageCircle size={17} />
-          <span>{post.commentsCount || 0}</span>
-        </button>
-        <button className="action-pill" type="button" aria-label="Repost" onClick={repostPost}>
-          <Repeat2 size={17} />
-          <span>Repost</span>
-        </button>
-        <button className="action-pill" type="button" aria-label="Share post" onClick={sharePost}>
-          <Share size={17} />
-          <span>Share</span>
-        </button>
-        <button className={saved ? 'action-pill active' : 'action-pill'} type="button" aria-label="Save post" onClick={toggleSave}>
-          <Bookmark size={17} />
-        </button>
-      </div>
-
-      <form className="comment-form premium-comment-form" onSubmit={submitComment}>
-        <img src={user?.avatar || '/avatar-placeholder.svg'} alt="me" className="avatar avatar-sm" />
-        <input ref={commentInputRef} value={comment} onChange={(event) => setComment(event.target.value)} placeholder="Add a comment..." />
-        <button className="primary-btn" type="submit">Post</button>
-      </form>
+      </motion.article>
 
       <AnimatePresence>
+        {commentsOpen ? (
+          <motion.div className="post-comments-backdrop" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={closeComments}>
+            <motion.aside
+              className="post-comments-drawer glass-card"
+              initial={{ x: '100%' }}
+              animate={{ x: 0 }}
+              exit={{ x: '100%' }}
+              transition={{ type: 'spring', stiffness: 280, damping: 34 }}
+              onClick={(event) => event.stopPropagation()}
+            >
+              <div className="post-comments-head">
+                <div>
+                  <p className="eyebrow">Conversation</p>
+                  <h3>Comments</h3>
+                  <p>{commentsCount} comment{commentsCount === 1 ? '' : 's'}</p>
+                </div>
+                <button type="button" className="ghost-btn icon-only" onClick={closeComments} aria-label="Close comments panel">
+                  <X size={16} />
+                </button>
+              </div>
+
+              <div className="post-comments-list">
+                {commentsLoading ? (
+                  <div className="notification-empty">
+                    <p>Loading comments...</p>
+                  </div>
+                ) : comments.length ? (
+                  comments.map((item) => renderComment(item))
+                ) : (
+                  <div className="notification-empty">
+                    <strong>No comments yet</strong>
+                    <p>Be the first to start the conversation.</p>
+                  </div>
+                )}
+              </div>
+
+              <form className="post-comments-composer" onSubmit={submitComment}>
+                <AvatarImage src={user?.avatar} alt="me" className="avatar avatar-sm" />
+                <textarea
+                  rows={3}
+                  value={commentText}
+                  onChange={(event) => setCommentText(event.target.value)}
+                  placeholder="Write a comment..."
+                />
+                <button className="primary-btn post-comments-submit" type="submit" disabled={commentSubmitting || !commentText.trim()}>
+                  <Send size={15} />
+                  {commentSubmitting ? 'Posting...' : 'Post'}
+                </button>
+              </form>
+            </motion.aside>
+          </motion.div>
+        ) : null}
+
         {shareOpen ? (
           <motion.div className="share-backdrop" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setShareOpen(false)}>
             <motion.div
@@ -277,7 +461,7 @@ export default function PostCard({ post, onChanged }) {
                 ) : shareList.length ? (
                   shareList.map((person) => (
                     <button key={person._id} type="button" className="share-user-row" onClick={() => sendPostToUser(person)}>
-                      <img src={person.avatar || '/avatar-placeholder.svg'} alt={person.username} className="avatar avatar-sm" />
+                      <AvatarImage src={resolveAvatar(person)} alt={person.username} className="avatar avatar-sm" />
                       <div>
                         <strong>{person.name}</strong>
                         <p>@{person.username}</p>
@@ -286,13 +470,16 @@ export default function PostCard({ post, onChanged }) {
                     </button>
                   ))
                 ) : (
-                  <p className="muted">No people found in this list yet.</p>
+                  <div className="notification-empty">
+                    <strong>No people to share with</strong>
+                    <p>Follow or add people to send this post.</p>
+                  </div>
                 )}
               </div>
             </motion.div>
           </motion.div>
         ) : null}
       </AnimatePresence>
-    </motion.article>
+    </>
   );
 }

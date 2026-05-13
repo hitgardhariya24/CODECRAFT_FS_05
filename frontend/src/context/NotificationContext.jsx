@@ -6,12 +6,19 @@ import { useSocket } from '../hooks/useSocket';
 const NotificationContext = createContext(null);
 
 export const NotificationProvider = ({ children }) => {
-  const { user } = useAuth();
+  const { user, updateUser } = useAuth();
   const socket = useSocket();
   const [notifications, setNotifications] = useState([]);
   const [followingIds, setFollowingIds] = useState([]);
   const [loading, setLoading] = useState(true);
   const [drawerOpen, setDrawerOpen] = useState(false);
+
+  const normalizeFollowingIds = useCallback((items = []) => {
+    return items
+      .map((item) => (typeof item === 'string' ? item : item?._id))
+      .filter(Boolean)
+      .map((item) => item.toString());
+  }, []);
 
   const loadNotifications = useCallback(async () => {
     if (!user?.username) {
@@ -29,15 +36,19 @@ export const NotificationProvider = ({ children }) => {
       ]);
 
       setNotifications(notificationData.notifications || []);
-      setFollowingIds((profileData.user?.following || []).map((item) => item._id).filter(Boolean));
+      setFollowingIds(normalizeFollowingIds(profileData.user?.following || user?.following || []));
     } finally {
       setLoading(false);
     }
-  }, [user?.username]);
+  }, [normalizeFollowingIds, user?.following, user?.username]);
 
   useEffect(() => {
     loadNotifications();
   }, [loadNotifications]);
+
+  useEffect(() => {
+    setFollowingIds(normalizeFollowingIds(user?.following || []));
+  }, [normalizeFollowingIds, user?.following]);
 
   useEffect(() => {
     if (!socket) return undefined;
@@ -46,11 +57,41 @@ export const NotificationProvider = ({ children }) => {
       setNotifications((current) => [notification, ...current.filter((item) => item._id !== notification._id)]);
     };
 
+    const handleRemovedNotification = ({ notificationId }) => {
+      setNotifications((current) => current.filter((item) => item._id !== notificationId));
+    };
+
+    const handleRequestStatus = (payload) => {
+      if (!payload) return;
+
+      if (payload.status === 'accepted' && payload.targetId) {
+        setFollowingIds((current) => (current.includes(payload.targetId) ? current : [...current, payload.targetId]));
+
+        if (user) {
+          const alreadyFollowing = normalizeFollowingIds(user.following || []).includes(payload.targetId);
+          if (!alreadyFollowing) {
+            updateUser({
+              ...user,
+              following: [...(user.following || []), payload.targetId],
+            });
+          }
+        }
+      }
+
+      if (payload.status === 'deleted' && payload.targetId) {
+        setFollowingIds((current) => current.filter((id) => id !== payload.targetId));
+      }
+    };
+
     socket.on('notification:new', handleNewNotification);
+    socket.on('notification:removed', handleRemovedNotification);
+    socket.on('follow:request:status', handleRequestStatus);
     return () => {
       socket.off('notification:new', handleNewNotification);
+      socket.off('notification:removed', handleRemovedNotification);
+      socket.off('follow:request:status', handleRequestStatus);
     };
-  }, [socket]);
+  }, [normalizeFollowingIds, socket, updateUser]);
 
   const markAllRead = useCallback(async () => {
     if (!notifications.length) return;

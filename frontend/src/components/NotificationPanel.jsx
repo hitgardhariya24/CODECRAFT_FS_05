@@ -7,19 +7,23 @@ import {
   ChevronRight,
   Heart,
   MessageCircle,
+  Repeat2,
   AtSign,
   UserPlus,
   Mail,
   X,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
+import AvatarImage from './AvatarImage';
 import api from '../services/api';
+import { getAvatarUrl, getMediaUrl } from '../utils/media';
 
 const filterOptions = [
   { key: 'all', label: 'All' },
   { key: 'following', label: 'People you follow' },
   { key: 'comments', label: 'Comments' },
   { key: 'likes', label: 'Likes' },
+  { key: 'reposts', label: 'Reposts' },
   { key: 'follows', label: 'Follows' },
   { key: 'mentions', label: 'Mentions' },
 ];
@@ -28,6 +32,7 @@ const typeMeta = {
   follow: { icon: UserPlus, label: 'followed you', tone: 'follow', filterKey: 'follows' },
   comment: { icon: MessageCircle, label: 'commented on your post', tone: 'comment', filterKey: 'comments' },
   like: { icon: Heart, label: 'liked your post', tone: 'like', filterKey: 'likes' },
+  repost: { icon: Repeat2, label: 'reposted your post', tone: 'repost', filterKey: 'reposts' },
   mention: { icon: AtSign, label: 'mentioned you', tone: 'mention', filterKey: 'mentions' },
   message: { icon: Mail, label: 'sent you a message', tone: 'message', filterKey: 'all' },
   story: { icon: Bell, label: 'engaged with your story', tone: 'story', filterKey: 'all' },
@@ -51,7 +56,7 @@ const formatRelativeTime = (value) => {
 
 const getTypeMeta = (notification) => typeMeta[notification.type] || { icon: Bell, label: 'activity update', tone: 'default', filterKey: 'all' };
 
-const getPreviewImage = (notification) => notification.post?.media?.[0]?.url || notification.actor?.avatar || '/avatar-placeholder.svg';
+const getPreviewImage = (notification) => getMediaUrl(notification.post?.media?.[0]?.url) || getAvatarUrl(notification.actor?.avatar) || '/avatar-placeholder.svg';
 
 export default function NotificationPanel({
   mode = 'page',
@@ -163,8 +168,12 @@ export default function NotificationPanel({
           visibleNotifications.map((notification) => {
             const meta = getTypeMeta(notification);
             const Icon = meta.icon;
-            const isRequest = meta.tone === 'request';
+            const isPendingRequest = notification.type === 'follow_request' || notification.type === 'request';
+            const isAcceptedRequest = notification.type === 'follow_accepted';
+            const isRequestThread = isPendingRequest || isAcceptedRequest;
             const isFollowing = followingSet.has(notification.actor?._id);
+            const actorName = notification.actor?.name || notification.actor?.username || 'Someone';
+            const messageText = notification.text || `${actorName} ${meta.label}`;
 
             return (
               <motion.article
@@ -175,7 +184,7 @@ export default function NotificationPanel({
                 onClick={() => handleOpenTarget(notification)}
               >
                 <div className="notification-avatar-wrap">
-                  <img src={notification.actor?.avatar || '/avatar-placeholder.svg'} alt={notification.actor?.username || 'user'} className="avatar avatar-lg notification-avatar" />
+                  <AvatarImage src={notification.actor?.avatar} alt={notification.actor?.username || 'user'} className="avatar avatar-lg notification-avatar" />
                   {!notification.read ? <span className="notification-unread-dot" /> : null}
                 </div>
 
@@ -184,28 +193,32 @@ export default function NotificationPanel({
                     <div className={`notification-icon-badge ${meta.tone}`}>
                       <Icon size={14} strokeWidth={2.4} />
                     </div>
-                    <div>
-                      <strong>{notification.actor?.username || 'Someone'}</strong>
-                      <p>{meta.label}</p>
-                    </div>
+                    {isRequestThread ? (
+                      <p className="notification-inline-text">
+                        <strong>{actorName}</strong>
+                        <span>{isAcceptedRequest ? ' accepted your follow request' : ' requested to follow you'}</span>
+                      </p>
+                    ) : (
+                      <p className="notification-inline-text">{messageText}</p>
+                    )}
                     <span className="notification-time">{formatRelativeTime(notification.createdAt)}</span>
                   </div>
 
-                  {notification.text ? <p className="notification-text">{notification.text}</p> : null}
-
                   <div className="notification-card-footer">
-                    <span className={`notification-type-pill ${meta.tone}`}>{meta.tone === 'default' ? 'Activity' : meta.label.split(' ')[0]}</span>
-
-                    {isRequest ? (
-                      <div className="notification-card-actions">
-                        <button type="button" className="primary-btn notification-action-btn" onClick={(event) => { event.stopPropagation(); handleRequestAction('confirm', notification); }}>
+                    {isPendingRequest ? (
+                      <div className="notification-card-actions notification-request-actions">
+                        <button type="button" className="primary-btn notification-action-btn request-action-btn" onClick={(event) => { event.stopPropagation(); handleRequestAction('confirm', notification); }}>
                           Confirm
                         </button>
-                        <button type="button" className="ghost-btn notification-action-btn" onClick={(event) => { event.stopPropagation(); handleRequestAction('delete', notification); }}>
+                        <button type="button" className="ghost-btn notification-action-btn request-action-btn" onClick={(event) => { event.stopPropagation(); handleRequestAction('delete', notification); }}>
                           Delete
                         </button>
                       </div>
-                    ) : notification.type === 'follow' ? (
+                    ) : isAcceptedRequest ? null : (
+                      <span className={`notification-type-pill ${meta.tone}`}>{meta.tone === 'default' ? 'Activity' : meta.label.split(' ')[0]}</span>
+                    )}
+
+                    {!isRequestThread && notification.type === 'follow' ? (
                       <button
                         type="button"
                         className={isFollowing ? 'ghost-btn notification-action-btn' : 'primary-btn notification-action-btn'}
@@ -216,15 +229,17 @@ export default function NotificationPanel({
                       >
                         {isFollowing ? 'Following' : 'Follow'}
                       </button>
-                    ) : (
+                    ) : !isRequestThread ? (
                       <ChevronRight size={16} className="notification-chevron" />
-                    )}
+                    ) : null}
                   </div>
                 </div>
 
-                <div className="notification-preview">
-                  <img src={getPreviewImage(notification)} alt="preview" />
-                </div>
+                {!isRequestThread && notification.type !== 'message' ? (
+                  <div className="notification-preview">
+                    <img src={getPreviewImage(notification)} alt="preview" />
+                  </div>
+                ) : null}
               </motion.article>
             );
           })
@@ -232,7 +247,7 @@ export default function NotificationPanel({
           <div className="notification-empty">
             <Bell size={22} />
             <strong>No notifications yet</strong>
-            <p>New follows, comments, likes, mentions, and messages will appear here in real time.</p>
+            <p>New follows, comments, likes, reposts, mentions, and messages will appear here in real time.</p>
           </div>
         )}
       </div>

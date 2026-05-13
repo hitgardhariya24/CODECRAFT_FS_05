@@ -5,9 +5,10 @@ const { createNotification } = require('../services/notificationService');
 const { extractHashtags, buildMediaPayload } = require('../services/postUtils');
 const { toPublicUrl } = require('../utils/media');
 const { getPagination } = require('../utils/paginate');
+const { filterPostsByProfileVisibility } = require('./feedController');
 
 const postPopulate = [
-  { path: 'author', select: 'name username avatar bio isOnline lastSeen' },
+  { path: 'author', select: 'name username avatar bio isOnline lastSeen profileVisibility' },
   { path: 'taggedUsers', select: 'name username avatar' },
 ];
 
@@ -65,49 +66,112 @@ const deletePost = async (req, res) => {
 const getPostById = async (req, res) => {
   const post = await Post.findById(req.params.postId).populate(postPopulate);
   if (!post) return res.status(404).json({ message: 'Post not found' });
+  
+  // Check if user can view this post based on author's profile visibility
+  const authorId = post.author._id.toString();
+  const userId = req.user._id.toString();
+  const isAuthor = authorId === userId;
+  const isFollowing = req.user.following.some(id => id.toString() === authorId);
+  
+  if (post.author.profileVisibility === 'private' && !isAuthor && !isFollowing) {
+    return res.status(403).json({ message: 'Cannot view posts from private profiles you do not follow' });
+  }
+  
   res.json({ post });
 };
 
 const toggleLike = async (req, res) => {
-  const post = await Post.findById(req.params.postId).populate('author', 'username');
+  const post = await Post.findById(req.params.postId).populate('author', 'name username avatar profileVisibility');
   if (!post) return res.status(404).json({ message: 'Post not found' });
+  
+  // Check if user can interact with this post based on author's profile visibility
+  const authorId = post.author._id.toString();
+  const userId = req.user._id.toString();
+  const isAuthor = authorId === userId;
+  const isFollowing = req.user.following.some(id => id.toString() === authorId);
+  
+  if (post.author.profileVisibility === 'private' && !isAuthor && !isFollowing) {
+    return res.status(403).json({ message: 'Cannot like posts from private profiles you do not follow' });
+  }
 
   const hasLiked = post.likes.some((userId) => userId.equals(req.user._id));
   post.likes = hasLiked ? post.likes.filter((userId) => !userId.equals(req.user._id)) : [...post.likes, req.user._id];
   await post.save();
 
   if (!hasLiked && !post.author._id.equals(req.user._id)) {
+    const actorName = req.user.name || req.user.username || 'Someone';
     await createNotification({
       recipient: post.author._id,
       actor: req.user._id,
       type: 'like',
       post: post._id,
-      text: `${req.user.username || 'Someone'} liked your post`,
+      text: `${actorName} liked your post`,
     });
   }
 
   res.json({ liked: !hasLiked, likesCount: post.likes.length });
 };
 
-const addComment = async (req, res) => {
-  const { text, parentComment = null } = req.body;
-  if (!text) return res.status(400).json({ message: 'Comment text is required' });
-
-  const post = await Post.findById(req.params.postId).populate('author', 'username');
+const repostPost = async (req, res) => {
+  const post = await Post.findById(req.params.postId).populate('author', 'username name profileVisibility');
   if (!post) return res.status(404).json({ message: 'Post not found' });
+  
+  // Check if user can interact with this post based on author's profile visibility
+  const authorId = post.author._id.toString();
+  const userId = req.user._id.toString();
+  const isAuthor = authorId === userId;
+  const isFollowing = req.user.following.some(id => id.toString() === authorId);
+  
+  if (post.author.profileVisibility === 'private' && !isAuthor && !isFollowing) {
+    return res.status(403).json({ message: 'Cannot repost posts from private profiles you do not follow' });
+  }
 
-  const comment = await Comment.create({ post: post._id, author: req.user._id, text, parentComment: parentComment || null });
-  post.commentsCount += 1;
+  post.sharesCount += 1;
   await post.save();
 
   if (!post.author._id.equals(req.user._id)) {
     await createNotification({
       recipient: post.author._id,
       actor: req.user._id,
+      type: 'repost',
+      post: post._id,
+      text: `${req.user.username || 'Someone'} reposted your post`,
+    });
+  }
+
+  res.json({ sharesCount: post.sharesCount });
+};
+
+const addComment = async (req, res) => {
+  const { text, parentComment = null } = req.body;
+  if (!text) return res.status(400).json({ message: 'Comment text is required' });
+
+  const post = await Post.findById(req.params.postId).populate('author', 'name username avatar profileVisibility');
+  if (!post) return res.status(404).json({ message: 'Post not found' });
+  
+  // Check if user can interact with this post based on author's profile visibility
+  const authorId = post.author._id.toString();
+  const userId = req.user._id.toString();
+  const isAuthor = authorId === userId;
+  const isFollowing = req.user.following.some(id => id.toString() === authorId);
+  
+  if (post.author.profileVisibility === 'private' && !isAuthor && !isFollowing) {
+    return res.status(403).json({ message: 'Cannot comment on posts from private profiles you do not follow' });
+  }
+
+  const comment = await Comment.create({ post: post._id, author: req.user._id, text, parentComment: parentComment || null });
+  post.commentsCount += 1;
+  await post.save();
+
+  if (!post.author._id.equals(req.user._id)) {
+    const actorName = req.user.name || req.user.username || 'Someone';
+    await createNotification({
+      recipient: post.author._id,
+      actor: req.user._id,
       type: 'comment',
       post: post._id,
       comment: comment._id,
-      text: `${req.user.username || 'Someone'} commented on your post`,
+      text: `${actorName} commented on your post`,
     });
   }
 
@@ -152,6 +216,19 @@ const reactToComment = async (req, res) => {
 };
 
 const getCommentsForPost = async (req, res) => {
+  const post = await Post.findById(req.params.postId).populate('author', 'profileVisibility');
+  if (!post) return res.status(404).json({ message: 'Post not found' });
+  
+  // Check if user can view comments for this post based on author's profile visibility
+  const authorId = post.author._id.toString();
+  const userId = req.user._id.toString();
+  const isAuthor = authorId === userId;
+  const isFollowing = req.user.following.some(id => id.toString() === authorId);
+  
+  if (post.author.profileVisibility === 'private' && !isAuthor && !isFollowing) {
+    return res.status(403).json({ message: 'Cannot view comments on posts from private profiles you do not follow' });
+  }
+
   const comments = await Comment.find({ post: req.params.postId })
     .populate('author', 'name username avatar')
     .sort({ createdAt: 1 });
@@ -179,12 +256,13 @@ const getCommentsForPost = async (req, res) => {
 
 const getTrendingPosts = async (req, res) => {
   const { skip, limit } = getPagination(req.query);
-  const posts = await Post.find()
+  const posts = await Post.find({ visibility: 'public' })
     .populate(postPopulate)
     .sort({ likes: -1, commentsCount: -1, createdAt: -1 })
     .skip(skip)
     .limit(limit);
-  res.json({ posts });
+  const filteredPosts = filterPostsByProfileVisibility(posts, req.user);
+  res.json({ posts: filteredPosts });
 };
 
 module.exports = {
@@ -193,6 +271,7 @@ module.exports = {
   deletePost,
   getPostById,
   toggleLike,
+  repostPost,
   addComment,
   updateComment,
   deleteComment,

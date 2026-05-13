@@ -14,6 +14,7 @@ const allowedClientUrl = process.env.CLIENT_URL;
 const localDevOriginPattern = /^http:\/\/(localhost|127\.0\.0\.1):\d+$/;
 
 const uploadsDir = path.join(__dirname, '..', '..', 'uploads');
+const legacyUploadsDir = path.join(__dirname, '..', 'uploads');
 if (!fs.existsSync(uploadsDir)) {
   fs.mkdirSync(uploadsDir, { recursive: true });
 }
@@ -42,6 +43,7 @@ app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
 app.use(morgan('dev'));
 app.use('/uploads', express.static(uploadsDir));
+app.use('/backend/uploads', express.static(legacyUploadsDir));
 
 app.get('/api/health', (_req, res) => {
   res.json({ status: 'ok', name: 'Xverse API' });

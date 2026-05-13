@@ -1,5 +1,7 @@
 import { useEffect, useState } from 'react';
 import api from '../services/api';
+import AvatarImage from '../components/AvatarImage';
+import { getMediaUrl } from '../utils/media';
 
 export default function StoriesPage() {
   const [stories, setStories] = useState([]);
@@ -47,13 +49,13 @@ export default function StoriesPage() {
         {stories.map((story) => (
           <article key={story._id} className="panel-card glass-card story-card">
             <div className="profile-line">
-              <img src={story.author?.avatar || '/avatar-placeholder.svg'} alt={story.author?.username} className="avatar avatar-sm" />
+              <AvatarImage src={story.author?.avatar} alt={story.author?.username} className="avatar avatar-sm" />
               <div>
                 <strong>@{story.author?.username}</strong>
                 <p>{story.caption}</p>
               </div>
             </div>
-            {story.media?.type === 'video' ? <video controls src={story.media.url} className="post-media" /> : <img src={story.media?.url} alt="story" className="post-media" />}
+            {story.media?.type === 'video' ? <video controls src={getMediaUrl(story.media?.url)} className="post-media" /> : <img src={getMediaUrl(story.media?.url)} alt="story" className="post-media" />}
           </article>
         ))}
       </div>

@@ -1,5 +1,6 @@
 const User = require('../models/User');
 const Post = require('../models/Post');
+const { filterPostsByProfileVisibility } = require('./feedController');
 
 const searchUsers = async (req, res) => {
   const { q = '' } = req.query;
@@ -21,10 +22,11 @@ const searchPosts = async (req, res) => {
       { hashtags: { $regex: q.replace(/^#/, ''), $options: 'i' } },
     ],
   })
-    .populate('author', 'name username avatar')
+    .populate('author', 'name username avatar profileVisibility')
     .sort({ createdAt: -1 })
     .limit(20);
-  res.json({ posts });
+  const filteredPosts = filterPostsByProfileVisibility(posts, req.user);
+  res.json({ posts: filteredPosts });
 };
 
 const searchHashtags = async (req, res) => {

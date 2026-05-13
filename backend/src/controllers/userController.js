@@ -3,6 +3,7 @@ const Post = require('../models/Post');
 const Notification = require('../models/Notification');
 const { toPublicUrl } = require('../utils/media');
 const { createNotification } = require('../services/notificationService');
+const { emitToUser } = require('../socket');
 
 const isPrivateProfileVisible = (profile, viewerId) => {
   if (!profile || profile.profileVisibility !== 'private') return true;
@@ -71,7 +72,10 @@ const updateAvatar = async (req, res) => {
   user.avatar = toPublicUrl(req.file.path);
   await user.save();
 
-  res.json({ user: user.getPublicProfile() });
+  res.json({
+    user: user.getPublicProfile(),
+    avatarUrl: user.avatar,
+  });
 };
 
 const followUser = async (req, res) => {
@@ -98,6 +102,16 @@ const followUser = async (req, res) => {
       });
     }
 
+    emitToUser(currentUser._id.toString(), 'follow:request:status', {
+      actorId: currentUser._id.toString(),
+      actorUsername: currentUser.username,
+      targetId: target._id.toString(),
+      targetUsername: target.username,
+      status: 'requested',
+      hasPendingRequest: true,
+      isFollowing: false,
+    });
+
     return res.json({ message: existingRequest ? 'Follow request already sent' : 'Follow request sent' });
   }
 
@@ -112,9 +126,22 @@ const followUser = async (req, res) => {
       type: 'follow',
       text: `${currentUser.username} started following you`,
     });
+
+    emitToUser(currentUser._id.toString(), 'follow:request:status', {
+      actorId: currentUser._id.toString(),
+      actorUsername: currentUser.username,
+      targetId: target._id.toString(),
+      targetUsername: target.username,
+      status: 'following',
+      hasPendingRequest: false,
+      isFollowing: true,
+    });
   }
 
-  res.json({ message: 'Followed successfully' });
+   res.json({ 
+     message: alreadyFollowing ? 'Already following' : 'Followed successfully',
+     isFollowing: true
+   });
 };
 
 const acceptFollowRequest = async (req, res) => {
@@ -151,6 +178,33 @@ const acceptFollowRequest = async (req, res) => {
 
   await Notification.deleteOne({ _id: notification._id });
 
+  emitToUser(actor._id.toString(), 'follow:request:status', {
+    actorId: actor._id.toString(),
+    actorUsername: actor.username,
+    targetId: recipient._id.toString(),
+    targetUsername: recipient.username,
+    status: 'accepted',
+    hasPendingRequest: false,
+    isFollowing: true,
+    message: `${recipient.username} accepted your follow request`,
+  });
+
+  emitToUser(recipient._id.toString(), 'follow:request:status', {
+    actorId: actor._id.toString(),
+    actorUsername: actor.username,
+    targetId: recipient._id.toString(),
+    targetUsername: recipient.username,
+    status: 'accepted-self',
+    hasPendingRequest: false,
+    isFollowing: false,
+    message: `You accepted ${actor.username}'s request`,
+  });
+
+  emitToUser(recipient._id.toString(), 'notification:removed', {
+    notificationId: notification._id.toString(),
+    type: notification.type,
+  });
+
   res.json({ message: 'Follow request accepted' });
 };
 
@@ -164,6 +218,21 @@ const deleteFollowRequest = async (req, res) => {
   if (!notification) {
     return res.status(404).json({ message: 'Follow request not found' });
   }
+
+  emitToUser(notification.actor.toString(), 'follow:request:status', {
+    actorId: notification.actor.toString(),
+    targetId: notification.recipient.toString(),
+    targetUsername: req.user.username,
+    status: 'deleted',
+    hasPendingRequest: false,
+    isFollowing: false,
+    message: `${req.user.username} deleted your follow request`,
+  });
+
+  emitToUser(req.user._id.toString(), 'notification:removed', {
+    notificationId: notification._id.toString(),
+    type: notification.type,
+  });
 
   res.json({ message: 'Follow request deleted' });
 };

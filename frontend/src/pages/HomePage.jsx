@@ -6,6 +6,7 @@ import { useAuth } from '../context/AuthContext';
 import PostCard from '../components/PostCard';
 import Skeleton from '../components/Skeleton';
 import CreatePostModal from '../components/CreatePostModal';
+import AvatarImage from '../components/AvatarImage';
 import toast from 'react-hot-toast';
 
 const tabs = [
@@ -162,7 +163,7 @@ export default function HomePage() {
         <>
           <section className="composer-card glass-card x-composer">
             <div className="x-composer-head">
-              <img src={user?.avatar || '/avatar-placeholder.svg'} alt="me" className="avatar" />
+              <AvatarImage src={user?.avatar} alt="me" className="avatar" />
               <textarea
                 rows={3}
                 value={composer.text}

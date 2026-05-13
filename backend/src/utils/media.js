@@ -2,7 +2,9 @@ const path = require('path');
 
 const toPublicUrl = (filePath) => {
   if (!filePath) return '';
-  const relative = path.relative(path.join(__dirname, '..', '..'), filePath).split(path.sep).join('/');
+
+  const uploadsRoot = path.join(__dirname, '..', '..', '..');
+  const relative = path.relative(uploadsRoot, filePath).split(path.sep).join('/');
   return `/${relative}`;
 };
 

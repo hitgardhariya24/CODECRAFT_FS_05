@@ -13,8 +13,10 @@ import {
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import api from '../services/api';
+import AvatarImage from '../components/AvatarImage';
 import { useAuth } from '../context/AuthContext';
 import { useSocket } from '../hooks/useSocket';
+import { getMediaUrl } from '../utils/media';
 
 const formatRelativeTime = (value) => {
   if (!value) return '';
@@ -502,9 +504,9 @@ export default function MessagesPage() {
         {message.media.map((mediaItem, index) => (
           <div key={`${message._id}-${mediaItem.url}-${index}`} className="dm-media-item">
             {mediaItem.type === 'video' ? (
-              <video src={mediaItem.url} controls className="dm-media-content" />
+              <video src={getMediaUrl(mediaItem.url)} controls className="dm-media-content" />
             ) : (
-              <img src={mediaItem.url} alt="message media" className="dm-media-content" />
+              <img src={getMediaUrl(mediaItem.url)} alt="message media" className="dm-media-content" />
             )}
           </div>
         ))}
@@ -530,7 +532,7 @@ export default function MessagesPage() {
         <div className="dm-sidebar-head">
           <div className="dm-sidebar-user">
             <div className="dm-avatar dm-avatar-large">
-              <img src={user?.avatar || '/avatar-placeholder.svg'} alt={user?.username || 'You'} />
+              <AvatarImage src={user?.avatar} alt={user?.username || 'You'} />
             </div>
             <div className="dm-sidebar-user-copy">
               <strong>{user?.name || user?.username || 'Messages'}</strong>
@@ -577,7 +579,7 @@ export default function MessagesPage() {
                   transition={{ duration: 0.16 }}
                 >
                   <div className="dm-avatar dm-avatar-thread">
-                    <img src={person.avatar || '/avatar-placeholder.svg'} alt={person.username} />
+                    <AvatarImage src={person.avatar} alt={person.username} />
                     {person.isOnline ? <span className="dm-online-dot" /> : <span className="dm-offline-dot" />}
                   </div>
                   <div className="dm-thread-copy">
@@ -610,7 +612,7 @@ export default function MessagesPage() {
             <div className="dm-chat-header">
               <div className="dm-chat-profile">
                 <div className="dm-avatar dm-avatar-medium">
-                  <img src={activeParticipant.avatar || '/avatar-placeholder.svg'} alt={activeParticipant.username || 'chat'} />
+                  <AvatarImage src={activeParticipant.avatar} alt={activeParticipant.username || 'chat'} />
                   {activeParticipant.isOnline ? <span className="dm-online-dot" /> : null}
                 </div>
                 <div className="dm-chat-profile-copy">
@@ -652,7 +654,7 @@ export default function MessagesPage() {
                   >
                     {!isMine ? (
                       <div className="dm-avatar dm-avatar-message">
-                        <img src={activeParticipant.avatar || '/avatar-placeholder.svg'} alt={activeParticipant.username || 'participant'} />
+                        <AvatarImage src={activeParticipant.avatar} alt={activeParticipant.username || 'participant'} />
                       </div>
                     ) : null}
                     <div className="dm-message-bubble-wrap">
@@ -669,7 +671,7 @@ export default function MessagesPage() {
               {typingIndicator ? (
                 <motion.div className="dm-message-row theirs" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
                   <div className="dm-avatar dm-avatar-message">
-                    <img src={activeParticipant.avatar || '/avatar-placeholder.svg'} alt={activeParticipant.username || 'participant'} />
+                    <AvatarImage src={activeParticipant.avatar} alt={activeParticipant.username || 'participant'} />
                   </div>
                   <div className="dm-message-bubble theirs typing">
                     <div className="dm-typing-dots" aria-label="Typing indicator">

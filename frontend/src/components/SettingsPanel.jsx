@@ -3,6 +3,7 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
+import AvatarImage from '../components/AvatarImage';
 import {
   X,
   Settings,
@@ -103,7 +104,7 @@ export default function SettingsPanel({ mode = 'drawer', open = true, onClose })
       </div>
 
       <div className="settings-panel-user">
-        <img src={user?.avatar || '/avatar-placeholder.svg'} alt={user?.username} className="avatar avatar-lg" />
+        <AvatarImage src={user?.avatar} alt={user?.username} className="avatar avatar-lg" />
         <div>
           <strong>{user?.name || 'User'}</strong>
           <p>@{user?.username || 'username'}</p>

@@ -29,8 +29,8 @@ export default function Sidebar({ unreadCount = 0, onOpenNotifications, classNam
       <div className="sidebar-brand">
         <span className="brand-mark sidebar-brand-mark">X</span>
         <div>
-          <strong>Social Media</strong>
-          <p>Timeline</p>
+          <strong>Xverse</strong>
+          
         </div>
       </div>
 

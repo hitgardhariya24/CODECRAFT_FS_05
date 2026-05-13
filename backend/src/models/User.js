@@ -34,6 +34,28 @@ userSchema.pre('save', async function hashPassword(next) {
   next();
 });
 
+// Deduplicate followers and following arrays before saving
+userSchema.pre('save', function deduplicateFollows(next) {
+  if (this.isModified('followers')) {
+    const uniqueIds = new Set();
+    this.followers = this.followers.filter(id => {
+      const idStr = id.toString();
+      if (uniqueIds.has(idStr)) return false;
+      uniqueIds.add(idStr);
+      return true;
+    });
+  }
+  if (this.isModified('following')) {
+    const uniqueIds = new Set();
+    this.following = this.following.filter(id => {
+      const idStr = id.toString();
+      if (uniqueIds.has(idStr)) return false;
+      uniqueIds.add(idStr);
+      return true;
+    });
+  }
+  next();
+});
 userSchema.methods.comparePassword = function comparePassword(candidatePassword) {
   return bcrypt.compare(candidatePassword, this.password);
 };

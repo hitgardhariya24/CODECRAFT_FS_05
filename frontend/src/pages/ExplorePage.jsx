@@ -11,11 +11,12 @@ import {
   ChevronRight,
   Heart,
   MessageCircle,
-  ArrowUpRight,
 } from 'lucide-react';
 import api from '../services/api';
 import Skeleton from '../components/Skeleton';
+import AvatarImage from '../components/AvatarImage';
 import toast from 'react-hot-toast';
+import { getAvatarUrl, getMediaUrl } from '../utils/media';
 
 const exploreFilters = [
   { key: 'all', label: 'All' },
@@ -43,7 +44,7 @@ const getTileClass = (post, index) => {
   return index % 6 === 0 ? 'tile-large' : index % 2 === 0 ? 'tile-tall' : 'tile-standard';
 };
 
-const getMediaPreview = (post) => post.media?.[0]?.url || post.author?.avatar || '/avatar-placeholder.svg';
+const getMediaPreview = (post) => getMediaUrl(post.media?.[0]?.url) || getAvatarUrl(post.author?.avatar) || '/avatar-placeholder.svg';
 
 const formatRelativeTime = (value) => {
   const createdAt = new Date(value).getTime();
@@ -227,7 +228,7 @@ export default function ExplorePage() {
                   {exploreUsers.length ? (
                     exploreUsers.map((result) => (
                       <Link key={result._id} to={`/profile/${result.username}`} className="explore-user-row group px-4 py-3 rounded-lg hover:bg-slate-700/30 transition-colors flex items-center gap-3 cursor-pointer">
-                        <img src={result.avatar || '/avatar-placeholder.svg'} alt={result.username} className="avatar avatar-sm w-10 h-10 rounded-full" />
+                        <AvatarImage src={result.avatar} alt={result.username} className="avatar avatar-sm w-10 h-10 rounded-full" />
                         <div className="flex-1 min-w-0">
                           <strong className="text-sm text-slate-100 block truncate">{result.name}</strong>
                           <p className="text-xs text-slate-500">@{result.username}</p>
@@ -329,9 +330,9 @@ export default function ExplorePage() {
                   <div className="explore-media-shell">
                     {firstMedia ? (
                       firstMedia.type === 'video' ? (
-                        <video src={firstMedia.url} muted playsInline preload="metadata" className="explore-media" />
+                        <video src={getMediaUrl(firstMedia.url)} muted playsInline preload="metadata" className="explore-media" />
                       ) : (
-                        <img src={firstMedia.url} alt="explore post" className="explore-media" />
+                        <img src={getMediaUrl(firstMedia.url)} alt="explore post" className="explore-media" />
                       )
                     ) : (
                       <div className="explore-text-card">
@@ -361,15 +362,12 @@ export default function ExplorePage() {
 
                   <div className="explore-tile-footer">
                     <Link to={`/profile/${post.author?.username}`} className="explore-author-pill" onClick={(event) => event.stopPropagation()}>
-                      <img src={post.author?.avatar || '/avatar-placeholder.svg'} alt={post.author?.username} className="avatar avatar-sm" />
+                      <AvatarImage src={post.author?.avatar} alt={post.author?.username} className="avatar avatar-sm" />
                       <div>
                         <strong>{post.author?.username || 'creator'}</strong>
                         <p>{post.location || 'Trending now'}</p>
                       </div>
                     </Link>
-                    <button type="button" className="ghost-btn icon-only explore-view-btn" onClick={(event) => { event.stopPropagation(); openPostViewer(post); }} aria-label="View post">
-                      <ArrowUpRight size={15} />
-                    </button>
                   </div>
                 </div>
               </motion.article>
@@ -397,9 +395,9 @@ export default function ExplorePage() {
                 {selectedPost.media?.length ? (
                   <>
                     {selectedPost.media[viewerIndex]?.type === 'video' ? (
-                      <video controls autoPlay playsInline src={selectedPost.media[viewerIndex].url} className="explore-viewer-main" />
+                      <video controls autoPlay playsInline src={getMediaUrl(selectedPost.media[viewerIndex].url)} className="explore-viewer-main" />
                     ) : (
-                      <img src={selectedPost.media[viewerIndex].url} alt="selected post" className="explore-viewer-main" />
+                      <img src={getMediaUrl(selectedPost.media[viewerIndex].url)} alt="selected post" className="explore-viewer-main" />
                     )}
 
                     {selectedPost.media.length > 1 ? (
@@ -422,7 +420,7 @@ export default function ExplorePage() {
               <div className="explore-viewer-panel">
                 <div className="explore-viewer-head">
                   <Link to={`/profile/${selectedPost.author?.username}`} className="explore-viewer-author">
-                    <img src={selectedPost.author?.avatar || '/avatar-placeholder.svg'} alt={selectedPost.author?.username} className="avatar avatar-sm" />
+                    <AvatarImage src={selectedPost.author?.avatar} alt={selectedPost.author?.username} className="avatar avatar-sm" />
                     <div>
                       <strong>{selectedPost.author?.name}</strong>
                       <p>@{selectedPost.author?.username}</p>

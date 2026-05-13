@@ -13,6 +13,7 @@ const {
   reactToComment,
   getCommentsForPost,
   getTrendingPosts,
+  repostPost,
 } = require('../controllers/postController');
 
 const router = express.Router();
@@ -23,6 +24,7 @@ router.get('/:postId', protect, getPostById);
 router.patch('/:postId', protect, upload.array('media', 10), updatePost);
 router.delete('/:postId', protect, deletePost);
 router.post('/:postId/like', protect, toggleLike);
+router.post('/:postId/repost', protect, repostPost);
 router.get('/:postId/comments', protect, getCommentsForPost);
 router.post('/:postId/comments', protect, addComment);
 router.patch('/comments/:commentId', protect, updateComment);

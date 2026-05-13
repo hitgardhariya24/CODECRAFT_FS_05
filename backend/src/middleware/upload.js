@@ -3,7 +3,7 @@ const path = require('path');
 const multer = require('multer');
 
 const createDirectory = (folder) => {
-  const directory = path.join(__dirname, '..', '..', 'uploads', folder);
+  const directory = path.join(__dirname, '..', '..', '..', 'uploads', folder);
   fs.mkdirSync(directory, { recursive: true });
   return directory;
 };

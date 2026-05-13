@@ -8,6 +8,7 @@ import SearchPage from './pages/SearchPage';
 import NotificationsPage from './pages/NotificationsPage';
 import MessagesPage from './pages/MessagesPage';
 import StoriesPage from './pages/StoriesPage';
+import BookmarksPage from './pages/BookmarksPage';
 import ResetPasswordPage from './pages/ResetPasswordPage';
 import NotFoundPage from './pages/NotFoundPage';
 import { useAuth } from './context/AuthContext';
@@ -39,6 +40,7 @@ export default function App() {
         <Route path="notifications" element={<NotificationsPage />} />
         <Route path="messages" element={<MessagesPage />} />
         <Route path="stories" element={<StoriesPage />} />
+        <Route path="bookmarks" element={<BookmarksPage />} />
       </Route>
       <Route path="*" element={<NotFoundPage />} />
     </Routes>
