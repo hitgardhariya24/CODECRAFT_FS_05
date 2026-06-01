@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { subscribeFollowSync } from '../utils/followSync';
 import { AnimatePresence, motion } from 'framer-motion';
 import { ImagePlus, Smile, MapPin, X, ExternalLink } from 'lucide-react';
 import api from '../services/api';
@@ -100,6 +101,24 @@ export default function HomePage() {
       setLoading(false);
     };
     load();
+  }, [endpoint]);
+
+  useEffect(() => {
+    const unsub = subscribeFollowSync((payload) => {
+      if (!payload) return;
+      // refresh feed on follow/unfollow changes
+      if (['unfollow', 'remove-follower', 'following'].includes(payload.type)) {
+        (async () => {
+          setLoading(true);
+          setPage(1);
+          const { data } = await api.get(endpoint, { params: { page: 1, limit: 8 } });
+          setPosts(data.posts || []);
+          setHasMore((data.posts || []).length >= 8);
+          setLoading(false);
+        })();
+      }
+    });
+    return () => unsub?.();
   }, [endpoint]);
 
   useEffect(() => {
@@ -248,6 +267,7 @@ export default function HomePage() {
         onSubmit={submitPost}
         form={composer}
         setForm={setComposer}
+        mediaFiles={mediaFiles}
         mediaPreview={mediaPreview}
         setMediaFiles={setMediaFiles}
         setMediaPreview={setMediaPreview}

@@ -6,6 +6,7 @@ import toast from 'react-hot-toast';
 import { useAuth } from '../context/AuthContext';
 import AvatarImage from './AvatarImage';
 import SuggestionsPanel from './SuggestionsPanel';
+import { emitFollowSync } from '../utils/followSync';
 
 export default function RightRail() {
   const { user, updateUser } = useAuth();
@@ -50,21 +51,10 @@ export default function RightRail() {
         following: [...(user.following || []), item._id]
       };
       updateUser(updatedUser);
+      emitFollowSync({ type: 'following', targetId: item._id, username: item.username });
       
-       // Check for duplicates before updating
-       const followingIds = new Set(
-         (user.following || []).map(f => typeof f === 'string' ? f : f._id || f)
-       );
-       if (!followingIds.has(item._id)) {
-         const updatedUser = {
-           ...user,
-           following: [...(user.following || []), item._id]
-         };
-         updateUser(updatedUser);
-       }
-       
-       // Remove from suggestions list
-       setSuggestions((current) => current.filter((s) => s._id !== item._id));
+      // Remove from suggestions list
+      setSuggestions((current) => current.filter((s) => s._id !== item._id));
       
       toast.success(`Following ${item.username}`);
     } catch (error) {
@@ -84,6 +74,7 @@ export default function RightRail() {
         )
       };
       updateUser(updatedUser);
+      emitFollowSync({ type: 'unfollow', targetId: item._id, username: item.username });
       
       // Add back to suggestions list
       setSuggestions((current) => [...current, item]);
@@ -104,6 +95,7 @@ export default function RightRail() {
       following: [...(user.following || []), userId]
     };
     updateUser(updatedUser);
+    emitFollowSync({ type: 'following', targetId: userId, username });
   };
 
   const handleUnfollowFromPanel = (username, userId) => {
@@ -121,6 +113,7 @@ export default function RightRail() {
       )
     };
     updateUser(updatedUser);
+    emitFollowSync({ type: 'unfollow', targetId: userId, username });
   };
 
   return (

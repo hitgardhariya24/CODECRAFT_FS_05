@@ -1709,6 +1709,47 @@ html, body {
   object-fit: cover;
 }
 
+.post-video-shell {
+  position: relative;
+  overflow: hidden;
+  border-radius: 22px;
+}
+
+.post-video-media {
+  display: block;
+  width: 100%;
+  max-height: 500px;
+  object-fit: cover;
+  cursor: pointer;
+}
+
+.video-mute-toggle {
+  position: absolute;
+  right: 12px;
+  bottom: 12px;
+  z-index: 2;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 38px;
+  height: 38px;
+  border-radius: 999px;
+  border: 1px solid rgba(255,255,255,0.14);
+  background: rgba(2, 6, 23, 0.62);
+  backdrop-filter: blur(10px);
+  color: white;
+  box-shadow: 0 10px 24px rgba(0,0,0,0.32);
+}
+
+.video-mute-toggle:hover {
+  transform: translateY(-1px);
+  background: rgba(2, 6, 23, 0.8);
+}
+
+.preview-video {
+  background: #050816;
+}
+
 /* Ensure cards do not cause overflow and scale nicely */
 .post-card,
 .panel-card,
@@ -5074,6 +5115,110 @@ html, body {
   place-items: center;
   padding: 20px;
   overflow-y: auto;
+}
+
+/* Follow List Drawer (side panel) */
+.follow-panel-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 85;
+  background: rgba(2, 6, 23, 0.6);
+  backdrop-filter: blur(10px);
+}
+
+.follow-panel-drawer {
+  position: fixed;
+  right: 0;
+  top: 0;
+  height: 100vh;
+  width: min(520px, 100%);
+  z-index: 90;
+  display: flex;
+  flex-direction: column;
+  background: var(--surface);
+  border-left: 1px solid var(--border);
+  border-radius: 0;
+  box-shadow: -24px 0 60px rgba(0,0,0,0.6);
+  overflow: hidden;
+}
+
+.follow-panel-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 20px 22px;
+  border-bottom: 1px solid var(--border);
+}
+
+.follow-panel-search {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--border);
+}
+
+.follow-panel-search input {
+  flex: 1;
+  background: transparent;
+  border: none;
+  color: var(--text);
+  outline: none;
+}
+
+.follow-panel-list {
+  flex: 1;
+  overflow-y: auto;
+  display: grid;
+  gap: 10px;
+  padding: 12px 14px;
+}
+
+.follow-panel-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px;
+  border-radius: 14px;
+  background: rgba(255,255,255,0.02);
+  border: 1px solid rgba(255,255,255,0.04);
+}
+
+.follow-panel-user {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  text-decoration: none;
+  color: inherit;
+}
+
+.follow-panel-action {
+  min-width: 92px;
+  padding: 8px 14px;
+  border-radius: 999px;
+  background: linear-gradient(135deg, #1d9bf0, #127cc4);
+  color: white;
+  border: none;
+  cursor: pointer;
+}
+
+.follow-panel-empty {
+  display: grid;
+  place-items: center;
+  min-height: 240px;
+  color: var(--muted);
+  text-align: center;
+}
+
+.link-like {
+  background: transparent;
+  border: none;
+  color: var(--text);
+  cursor: pointer;
+  padding: 0;
+  font: inherit;
 }
 
 .suggestions-modal {

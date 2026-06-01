@@ -5,6 +5,8 @@ import PostCard from '../components/PostCard';
 import Skeleton from '../components/Skeleton';
 import CreatePostModal from '../components/CreatePostModal';
 import AvatarImage from '../components/AvatarImage';
+import FollowListPanel from '../components/FollowListPanel';
+import { emitFollowSync } from '../utils/followSync';
 import { useAuth } from '../context/AuthContext';
 import { useSocket } from '../hooks/useSocket';
 import { AnimatePresence, motion } from 'framer-motion';
@@ -26,6 +28,13 @@ export default function ProfilePage() {
   const avatarInputRef = useRef(null);
   const [accessState, setAccessState] = useState({ canViewPosts: true, hasPendingRequest: false, isFollowing: false });
   const [createOpen, setCreateOpen] = useState(false);
+  const [followersOpen, setFollowersOpen] = useState(false);
+  const [followingOpen, setFollowingOpen] = useState(false);
+  const [followersList, setFollowersList] = useState([]);
+  const [followingList, setFollowingList] = useState([]);
+  const [listLoading, setListLoading] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [actionInProgress, setActionInProgress] = useState(null);
   const [composer, setComposer] = useState({ text: '', hashtags: '', taggedUsers: '', location: '' });
   const [mediaFiles, setMediaFiles] = useState([]);
   const [mediaPreview, setMediaPreview] = useState([]);
@@ -49,9 +58,50 @@ export default function ProfilePage() {
         location: data.user.location || '',
         profileVisibility: data.user.profileVisibility || 'public',
       });
+      // prefill lists counts
+      setFollowersList([]);
+      setFollowingList([]);
       setLoading(false);
     };
     load();
+  }, [username]);
+
+  useEffect(() => {
+    if (!followersOpen && !followingOpen) return undefined;
+
+    const loadLists = async () => {
+      setListLoading(true);
+      try {
+        if (followersOpen) {
+          const { data } = await api.get(`/users/${username}/followers`);
+          setFollowersList(data.followers || []);
+        }
+        if (followingOpen) {
+          const { data } = await api.get(`/users/${username}/following`);
+          setFollowingList(data.following || []);
+        }
+      } catch (error) {
+        toast.error('Could not load lists');
+      } finally {
+        setListLoading(false);
+      }
+    };
+
+    loadLists();
+  }, [followersOpen, followingOpen, username]);
+
+  useEffect(() => {
+    // dynamically import subscribe function to avoid circular import issues
+    let unsub;
+    import('../utils/followSync').then((mod) => {
+      unsub = mod.subscribeFollowSync((payload) => {
+        if (!payload) return;
+        if (payload.type === 'unfollow' || payload.type === 'remove-follower') {
+          api.get(`/users/${username}`).then((res) => setProfile(res.data.user)).catch(() => {});
+        }
+      });
+    });
+    return () => unsub?.();
   }, [username]);
 
   useEffect(() => {
@@ -191,8 +241,16 @@ export default function ProfilePage() {
           <p>@{profile.username}</p>
           <p className="profile-bio">{profile.bio || 'No bio yet.'}</p>
           <div className="stats-row profile-stats">
-            <span><strong>{profile.followersCount}</strong> Followers</span>
-            <span><strong>{profile.followingCount}</strong> Following</span>
+            <span>
+              <button type="button" className="link-like" onClick={async () => { setFollowersOpen(true); setSearchQuery(''); }}>
+                <strong>{profile.followersCount}</strong> Followers
+              </button>
+            </span>
+            <span>
+              <button type="button" className="link-like" onClick={async () => { setFollowingOpen(true); setSearchQuery(''); }}>
+                <strong>{profile.followingCount}</strong> Following
+              </button>
+            </span>
             <span><strong>{posts.length}</strong> Posts</span>
           </div>
         </div>
@@ -385,10 +443,70 @@ export default function ProfilePage() {
         onSubmit={submitPost}
         form={composer}
         setForm={setComposer}
+        mediaFiles={mediaFiles}
         mediaPreview={mediaPreview}
         setMediaFiles={setMediaFiles}
         setMediaPreview={setMediaPreview}
         variant="drawer"
+      />
+
+      <FollowListPanel
+        open={followersOpen}
+        title="Followers"
+        eyebrow="Connections"
+        items={followersList}
+        loading={listLoading}
+        searchValue={searchQuery}
+        onSearchChange={setSearchQuery}
+        onClose={() => setFollowersOpen(false)}
+        actionLabel={isOwnProfile ? 'Remove Follower' : null}
+        actionItemId={actionInProgress}
+        onAction={async (item) => {
+          if (!isOwnProfile) return;
+          try {
+            setActionInProgress(item._id);
+            await api.post(`/users/followers/${item.username}/remove`);
+            // update local UI
+            setFollowersList((current) => current.filter((i) => i._id !== item._id));
+            setProfile((p) => ({ ...p, followersCount: Math.max(0, (p.followersCount || 0) - 1) }));
+            emitFollowSync({ type: 'remove-follower', targetId: item._id, username: item.username, profileUsername: username });
+          } catch (error) {
+            toast.error(error.response?.data?.message || 'Could not remove follower');
+          } finally {
+            setActionInProgress(null);
+          }
+        }}
+        emptyTitle="No followers yet"
+        emptyDescription="Followed accounts will appear here when someone follows you."
+      />
+
+      <FollowListPanel
+        open={followingOpen}
+        title="Following"
+        eyebrow="Connections"
+        items={followingList}
+        loading={listLoading}
+        searchValue={searchQuery}
+        onSearchChange={setSearchQuery}
+        onClose={() => setFollowingOpen(false)}
+        actionLabel="Unfollow"
+        actionItemId={actionInProgress}
+        onAction={async (item) => {
+          try {
+            setActionInProgress(item._id);
+            await api.post(`/users/${item.username}/unfollow`);
+            setFollowingList((current) => current.filter((i) => i._id !== item._id));
+            setProfile((p) => ({ ...p, followingCount: Math.max(0, (p.followingCount || 0) - 1) }));
+            // update global auth user following list
+            emitFollowSync({ type: 'unfollow', targetId: item._id, username: item.username, profileUsername: username });
+          } catch (error) {
+            toast.error(error.response?.data?.message || 'Could not unfollow');
+          } finally {
+            setActionInProgress(null);
+          }
+        }}
+        emptyTitle="Not following anyone"
+        emptyDescription="Follow accounts to see them here."
       />
     </div>
   );

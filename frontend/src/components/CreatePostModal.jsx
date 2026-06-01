@@ -1,7 +1,7 @@
 import { AnimatePresence, motion } from 'framer-motion';
 import { useEffect } from 'react';
 
-export default function CreatePostModal({ open, onClose, onSubmit, form, setForm, mediaPreview, setMediaFiles, setMediaPreview, variant = 'modal' }) {
+export default function CreatePostModal({ open, onClose, onSubmit, form, setForm, mediaFiles = [], mediaPreview, setMediaFiles, setMediaPreview, variant = 'modal' }) {
   useEffect(() => {
     const handleEsc = (event) => {
       if (event.key === 'Escape') onClose();
@@ -40,7 +40,16 @@ export default function CreatePostModal({ open, onClose, onSubmit, form, setForm
 
         {mediaPreview?.length ? (
           <div className="preview-grid">
-            {mediaPreview.map((preview) => <img key={preview} src={preview} alt="preview" className="preview-thumb" />)}
+            {mediaPreview.map((preview, index) => {
+              const file = mediaFiles[index];
+              const isVideo = Boolean(file?.type?.startsWith('video/'));
+
+              return isVideo ? (
+                <video key={preview} src={preview} className="preview-thumb preview-video" muted playsInline />
+              ) : (
+                <img key={preview} src={preview} alt="preview" className="preview-thumb" />
+              );
+            })}
           </div>
         ) : null}
 

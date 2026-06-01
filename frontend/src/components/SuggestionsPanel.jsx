@@ -5,6 +5,7 @@ import { useMemo, useState, useEffect } from "react";
 import toast from "react-hot-toast";
 import AvatarImage from "./AvatarImage";
 import api from "../services/api";
+import { emitFollowSync } from "../utils/followSync";
 
 export default function SuggestionsPanel({ 
   open = false, 
@@ -40,6 +41,7 @@ export default function SuggestionsPanel({
       setLocalFollowing(newFollowing);
       
       toast.success(`Following ${user.username}`);
+      emitFollowSync({ type: 'following', targetId: user._id, username: user.username });
       onFollowUpdate?.(user.username, user._id);
     } catch (error) {
       toast.error(error.response?.data?.message || "Could not follow user");
@@ -57,6 +59,7 @@ export default function SuggestionsPanel({
       setLocalFollowing(newFollowing);
       
       toast.success(`Unfollowed ${user.username}`);
+      emitFollowSync({ type: 'unfollow', targetId: user._id, username: user.username });
       onUnfollowUpdate?.(user.username, user._id);
     } catch (error) {
       toast.error(error.response?.data?.message || "Could not unfollow user");

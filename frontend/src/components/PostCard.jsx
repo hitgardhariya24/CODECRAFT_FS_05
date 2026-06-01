@@ -1,6 +1,6 @@
 import { AnimatePresence, motion } from 'framer-motion';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Bookmark, Heart, MessageCircle, Repeat2, Share, BadgeCheck, Trash2, Link2, Users, X, Send } from 'lucide-react';
+import { Bookmark, Heart, MessageCircle, Repeat2, Share, BadgeCheck, Trash2, Link2, Users, X, Send, Volume2, VolumeX } from 'lucide-react';
 import api from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import toast from 'react-hot-toast';
@@ -10,6 +10,7 @@ import { getMediaUrl, isValidMediaUrl } from '../utils/media';
 export default function PostCard({ post, onChanged, initialSaved = false, showRepostBadge = false }) {
   const { user } = useAuth();
   const menuRef = useRef(null);
+  const videoRefs = useRef(new Map());
   const [commentsOpen, setCommentsOpen] = useState(false);
   const [comments, setComments] = useState([]);
   const [commentsLoading, setCommentsLoading] = useState(false);
@@ -27,6 +28,7 @@ export default function PostCard({ post, onChanged, initialSaved = false, showRe
   const [shareLoading, setShareLoading] = useState(false);
   const [reposting, setReposting] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [videoStates, setVideoStates] = useState({});
   const verified = Boolean(post.author?.verified || post.author?.isVerified);
   const isOwnPost = post.author?.username === user?.username;
 
@@ -256,6 +258,99 @@ export default function PostCard({ post, onChanged, initialSaved = false, showRe
   );
 
   const repostCount = post.sharesCount || 0;
+  const videoItems = useMemo(() => (post.media || []).filter((item) => item.type === 'video'), [post.media]);
+
+  useEffect(() => {
+    const observers = [];
+
+    videoItems.forEach((item) => {
+      const node = videoRefs.current.get(item.url);
+      if (!node) return;
+
+      const observer = new IntersectionObserver(
+        ([entry]) => {
+          const video = node;
+          const isVisible = entry.isIntersecting && entry.intersectionRatio >= 0.6;
+
+          if (isVisible) {
+            video.play().catch(() => {});
+          } else {
+            video.pause();
+          }
+
+          setVideoStates((current) => ({
+            ...current,
+            [item.url]: { ...current[item.url], visible: isVisible },
+          }));
+        },
+        { threshold: [0, 0.6, 1] }
+      );
+
+      observer.observe(node);
+      observers.push(observer);
+    });
+
+    return () => observers.forEach((observer) => observer.disconnect());
+  }, [videoItems]);
+
+  const toggleVideoMute = (videoUrl) => {
+    const node = videoRefs.current.get(videoUrl);
+    if (!node) return;
+
+    const nextMuted = !node.muted;
+    node.muted = nextMuted;
+    setVideoStates((current) => ({
+      ...current,
+      [videoUrl]: { ...current[videoUrl], muted: nextMuted },
+    }));
+
+    if (!nextMuted) {
+      node.play().catch(() => {});
+    }
+  };
+
+  const renderVideoMedia = (item) => {
+    const state = videoStates[item.url] || { muted: true, visible: false };
+
+    return (
+      <div key={item.url} className="post-video-shell">
+        <video
+          ref={(node) => {
+            if (node) {
+              node.muted = state.muted;
+              node.playsInline = true;
+              node.loop = true;
+              node.preload = 'metadata';
+              videoRefs.current.set(item.url, node);
+            } else {
+              videoRefs.current.delete(item.url);
+            }
+          }}
+          src={getMediaUrl(item.url)}
+          className="post-media post-video-media"
+          playsInline
+          muted={state.muted}
+          autoPlay={state.visible}
+          onClick={() => toggleVideoMute(item.url)}
+          onLoadedMetadata={(event) => {
+            event.currentTarget.muted = state.muted;
+          }}
+          onError={(event) => {
+            console.error('Video failed to load:', getMediaUrl(item.url));
+            event.currentTarget.style.display = 'none';
+          }}
+        />
+        <button
+          type="button"
+          className="video-mute-toggle"
+          onClick={() => toggleVideoMute(item.url)}
+          aria-label={state.muted ? 'Unmute video' : 'Mute video'}
+        >
+          {state.muted ? <VolumeX size={16} /> : <Volume2 size={16} />}
+        </button>
+      </div>
+    );
+  };
 
   return (
     <>
@@ -308,7 +403,6 @@ export default function PostCard({ post, onChanged, initialSaved = false, showRe
         {post.media?.length ? (
           <div className={`media-grid media-count-${Math.min(post.media.length, 4)}`}>
             {post.media.map((item) => {
-              const fullUrl = getMediaUrl(item.url);
               const isValid = isValidMediaUrl(item.url);
 
               if (!isValid) {
@@ -316,24 +410,15 @@ export default function PostCard({ post, onChanged, initialSaved = false, showRe
               }
 
               return item.type === 'video' ? (
-                <video
-                  key={item.url}
-                  controls
-                  src={fullUrl}
-                  className="post-media"
-                  onError={(e) => {
-                    console.error('Video failed to load:', fullUrl);
-                    e.target.style.display = 'none';
-                  }}
-                />
+                renderVideoMedia(item)
               ) : (
                 <img
                   key={item.url}
-                  src={fullUrl}
+                  src={getMediaUrl(item.url)}
                   alt={item.originalName || 'post media'}
                   className="post-media"
                   onError={(e) => {
-                    console.error('Image failed to load:', fullUrl);
+                    console.error('Image failed to load:', getMediaUrl(item.url));
                     e.target.style.display = 'none';
                   }}
                 />

@@ -7,6 +7,7 @@ const {
   updateAvatar,
   followUser,
   unfollowUser,
+  removeFollower,
   acceptFollowRequest,
   deleteFollowRequest,
   getFollowers,
@@ -24,6 +25,7 @@ router.patch('/profile', protect, updateProfile);
 router.patch('/avatar', protect, upload.single('avatar'), updateAvatar);
 router.post('/:username/follow', protect, followUser);
 router.post('/:username/unfollow', protect, unfollowUser);
+router.post('/followers/:username/remove', protect, removeFollower);
 router.post('/follow-requests/:notificationId/accept', protect, acceptFollowRequest);
 router.delete('/follow-requests/:notificationId', protect, deleteFollowRequest);
 router.get('/:username/followers', protect, getFollowers);

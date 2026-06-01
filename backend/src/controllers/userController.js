@@ -250,6 +250,22 @@ const unfollowUser = async (req, res) => {
   res.json({ message: 'Unfollowed successfully' });
 };
 
+const removeFollower = async (req, res) => {
+  const follower = await User.findOne({ username: req.params.username.toLowerCase() });
+  if (!follower) return res.status(404).json({ message: 'User not found' });
+
+  const currentUser = await User.findById(req.user._id);
+  if (!currentUser) return res.status(404).json({ message: 'Current user not found' });
+
+  currentUser.followers = currentUser.followers.filter((id) => !id.equals(follower._id));
+  follower.following = follower.following.filter((id) => !id.equals(currentUser._id));
+
+  await currentUser.save();
+  await follower.save();
+
+  res.json({ message: 'Follower removed successfully' });
+};
+
 const getFollowers = async (req, res) => {
   const user = await User.findOne({ username: req.params.username.toLowerCase() }).populate('followers', 'name username avatar bio');
   if (!user) return res.status(404).json({ message: 'User not found' });
@@ -293,6 +309,7 @@ module.exports = {
   updateAvatar,
   followUser,
   unfollowUser,
+  removeFollower,
   acceptFollowRequest,
   deleteFollowRequest,
   getFollowers,

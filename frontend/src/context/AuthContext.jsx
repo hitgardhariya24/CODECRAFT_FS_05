@@ -1,6 +1,7 @@
 import { createContext, useContext, useEffect, useMemo, useState } from 'react';
 import toast from 'react-hot-toast';
 import api from '../services/api';
+import { subscribeFollowSync } from '../utils/followSync';
 
 const AuthContext = createContext(null);
 
@@ -25,6 +26,33 @@ export const AuthProvider = ({ children }) => {
   useEffect(() => {
     loadMe();
   }, []);
+
+  useEffect(() => {
+    const unsub = subscribeFollowSync((payload) => {
+      if (!payload) return;
+      // If current user unfollowed someone elsewhere, refresh following list
+      if (payload.type === 'unfollow' && user) {
+        const id = payload.targetId;
+        setUser((prev) => {
+          if (!prev) return prev;
+          return {
+            ...prev,
+            following: (prev.following || []).filter((f) => (typeof f === 'string' ? f : f._id) !== id),
+          };
+        });
+      }
+
+      if (payload.type === 'remove-follower' && user) {
+        const targetId = payload.targetId;
+        // If the current authenticated user was the one removed, refresh their profile
+        if (String(user._id) === String(targetId)) {
+          loadMe();
+        }
+      }
+    });
+
+    return () => unsub?.();
+  }, [user]);
 
   const auth = useMemo(
     () => ({

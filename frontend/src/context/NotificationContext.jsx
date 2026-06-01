@@ -2,6 +2,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useState } 
 import api from '../services/api';
 import { useAuth } from './AuthContext';
 import { useSocket } from '../hooks/useSocket';
+import { subscribeFollowSync } from '../utils/followSync';
 
 const NotificationContext = createContext(null);
 
@@ -92,6 +93,17 @@ export const NotificationProvider = ({ children }) => {
       socket.off('follow:request:status', handleRequestStatus);
     };
   }, [normalizeFollowingIds, socket, updateUser]);
+
+  useEffect(() => {
+    const unsub = subscribeFollowSync((payload) => {
+      if (!payload) return;
+      // When follow/unfollow/remove happens, refresh notifications/following ids
+      if (['unfollow', 'remove-follower', 'following'].includes(payload.type)) {
+        loadNotifications();
+      }
+    });
+    return () => unsub?.();
+  }, [loadNotifications]);
 
   const markAllRead = useCallback(async () => {
     if (!notifications.length) return;

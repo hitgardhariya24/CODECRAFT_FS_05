@@ -17,6 +17,7 @@ import toast from 'react-hot-toast';
 import AvatarImage from './AvatarImage';
 import api from '../services/api';
 import { getAvatarUrl, getMediaUrl } from '../utils/media';
+import { emitFollowSync } from '../utils/followSync';
 
 const filterOptions = [
   { key: 'all', label: 'All' },
@@ -101,6 +102,7 @@ export default function NotificationPanel({
     try {
       await api.post(`/users/${notification.actor.username}/follow`);
       toast.success(`Following ${notification.actor.username}`);
+      emitFollowSync({ type: 'following', targetId: notification.actor._id, username: notification.actor.username });
       onRefresh?.();
     } catch (error) {
       toast.error(error.response?.data?.message || 'Could not follow user');
@@ -117,6 +119,9 @@ export default function NotificationPanel({
 
       await onMarkRead?.(notification._id);
       toast.success(`${action === 'confirm' ? 'Request accepted' : 'Request deleted'} for ${notification.actor?.username || 'user'}`);
+      if (action === 'confirm' && notification.actor?._id) {
+        emitFollowSync({ type: 'following', targetId: notification.actor._id, username: notification.actor.username });
+      }
       onRefresh?.();
     } catch (error) {
       toast.error(error.response?.data?.message || 'Could not update request');
